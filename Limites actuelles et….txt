@@ -1,0 +1,96 @@
+⚠️ 23. Limites actuelles et pistes d'amélioration
+Ce projet constitue une implémentation fonctionnelle d'une architecture Data Warehouse, mais plusieurs axes peuvent encore être développés.
+
+Tests de qualité des données
+Ajouter des contrôles automatisés sur :
+
+unicité des identifiants ;
+valeurs nulles ;
+intégrité des clés ;
+nombre de lignes ;
+valeurs aberrantes ;
+cohérence des montants.
+Data Quality Framework
+Mettre en place des règles explicites du type :
+
+order_id IS NOT NULL
+customer_id IS NOT NULL
+product_id IS NOT NULL
+price >= 0
+freight_value >= 0
+review_score BETWEEN 1 AND 5
+Gestion historique
+Les dimensions actuelles sont essentiellement construites comme des tables analytiques reconstruites.
+
+Une évolution possible serait d'implémenter une gestion historique des dimensions, par exemple avec une logique Slowly Changing Dimension (SCD) lorsque le besoin métier le justifie.
+
+Incremental Load
+Le pipeline actuel effectue une ingestion complète des sources et remplace les tables cibles.
+
+Une évolution importante serait de passer progressivement à des chargements incrémentaux :
+
+Full Load
+    ↓
+Incremental Load
+    ↓
+CDC / Change Data Capture
+afin d'éviter de retraiter inutilement l'ensemble des données lorsque les volumes augmentent.
+
+Orchestration avancée
+L'orchestrateur actuel est implémenté directement en Python.
+
+Une évolution possible serait d'utiliser un orchestrateur spécialisé comme :
+
+Apache Airflow
+Dagster
+Prefect
+pour gérer :
+
+planification ;
+dépendances ;
+retries ;
+monitoring ;
+historique des exécutions ;
+alertes.
+Séparation des environnements
+Une architecture plus avancée pourrait séparer :
+
+Development
+     ↓
+Testing
+     ↓
+Production
+avec des configurations et contrôles différents.
+
+🚀 24. Évolutions possibles
+La trajectoire possible du projet peut être représentée ainsi :
+
+                   VERSION ACTUELLE
+                         │
+                         ▼
+              Data Warehouse PostgreSQL
+                         │
+                         ▼
+              Bronze → Silver → Gold
+                         │
+                         ▼
+               Modèle dimensionnel
+                         │
+                         ▼
+                    BI / Reporting
+                         │
+              ┌──────────┴──────────┐
+              ▼                     ▼
+        Data Quality          Incremental Load
+              │                     │
+              └──────────┬──────────┘
+                         ▼
+                  Orchestration
+                         │
+                         ▼
+                 Monitoring / Alerting
+                         │
+                         ▼
+                  Production-ready
+
+Apprendre a coder en python

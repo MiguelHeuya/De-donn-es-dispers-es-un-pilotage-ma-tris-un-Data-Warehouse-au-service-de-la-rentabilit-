@@ -1,0 +1,23 @@
+# Environnement & Identifiants
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Fichiers virtuels et IDE
+.venv/
+venv/
+ENV/
+.vscode/
+.idea/
