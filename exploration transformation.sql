@@ -55,8 +55,8 @@ SELECT
 		WHEN 'S' THEN 'Other Sales'
 		ELSE 'n/a'
 	END AS prd_line,
-	prd_start_dt,
-	LEAD(prd_start_dt) OVER(PARTITION BY prd_key) AS prd_end_dt
+	prd_start_dt::date,
+	COALESCE(LEAD(prd_start_dt::date) OVER(PARTITION BY prd_key ORDER BY prd_start_dt::date), '9999-12-31'::date) AS prd_end_dt
 FROM bronze.crm_prd_info
 );
 
