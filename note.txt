@@ -1,0 +1,3 @@
+
+Appliquer le principe de transaction du tout ou rien du tout, pour soit migrer vers un état cohérent, soit
+rester a l'état actuel de la base de données

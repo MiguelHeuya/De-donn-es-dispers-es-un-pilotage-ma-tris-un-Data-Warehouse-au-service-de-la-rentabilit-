@@ -1,8 +1,7 @@
-
--- Il n'est pas utile de conserver l'historique pour cust_info
+-- 1. crm_cust_info
 DROP TABLE IF EXISTS silver.crm_cust_info;
 CREATE TABLE silver.crm_cust_info AS
-(WITH cust_ranked AS (
+WITH cust_ranked AS (
     SELECT
         cst_id,
         cst_key,
@@ -19,7 +18,7 @@ CREATE TABLE silver.crm_cust_info AS
             ELSE 'n/a'
         END AS cst_gndr,
         cst_create_date::date,
-        -- Numérote les doublons de chaque client du plus récent au plus ancien
+        "_source_db",
         ROW_NUMBER() OVER (
             PARTITION BY cst_id 
             ORDER BY cst_create_date::date DESC
@@ -34,99 +33,103 @@ SELECT
     cst_lastname,
     cst_marital_status,
     cst_gndr,
-    cst_create_date
+    cst_create_date,
+    "_source_db"
 FROM cust_ranked
-WHERE rn = 1);
+WHERE rn = 1;
 
 
--- On conserve l'historique dans la table prd_info
+-- 2. crm_prd_info
 DROP TABLE IF EXISTS silver.crm_prd_info;
-CREATE TABLE silver.crm_prd_info AS(
+CREATE TABLE silver.crm_prd_info AS
 SELECT
-	prd_id::text,
-	prd_key,
-	REPLACE(SUBSTRING(prd_key FROM 1 FOR 5), '-', '_') AS cat_id,
-	prd_nm,
-	prd_cost,
-	CASE UPPER(TRIM(prd_line))
-		WHEN 'M' THEN 'Mountain'
-		WHEN 'T' THEN 'Touring'
-		WHEN 'R' THEN 'Road'
-		WHEN 'S' THEN 'Other Sales'
-		ELSE 'n/a'
-	END AS prd_line,
-	prd_start_dt::date,
-	COALESCE(LEAD(prd_start_dt::date) OVER(PARTITION BY prd_key ORDER BY prd_start_dt::date), '9999-12-31'::date) AS prd_end_dt
-FROM bronze.crm_prd_info
-);
+    prd_id::text,
+    prd_key,
+    REPLACE(SUBSTRING(prd_key FROM 1 FOR 5), '-', '_') AS cat_id,
+    prd_nm,
+    prd_cost,
+    CASE UPPER(TRIM(prd_line))
+        WHEN 'M' THEN 'Mountain'
+        WHEN 'T' THEN 'Touring'
+        WHEN 'R' THEN 'Road'
+        WHEN 'S' THEN 'Other Sales'
+        ELSE 'n/a'
+    END AS prd_line,
+    prd_start_dt::date,
+    COALESCE(LEAD(prd_start_dt::date) OVER(PARTITION BY prd_key ORDER BY prd_start_dt::date), '9999-12-31'::date) AS prd_end_dt,
+    "_source_db"
+FROM bronze.crm_prd_info;
 
 
-
-
+-- 3. crm_sales_details
 DROP TABLE IF EXISTS silver.crm_sales_details;
-CREATE TABLE silver.crm_sales_details AS(
+CREATE TABLE silver.crm_sales_details AS
 SELECT
-	sls_ord_num,
-	sls_prd_key,
-	sls_cust_id::text,
-	CASE
-		WHEN sls_order_dt = 0 OR LENGTH(sls_order_dt::text) != 8 THEN NULL
-		ELSE TO_DATE(sls_order_dt::text, 'YYYYMMDD')
-	END AS sls_order_dt,
-	CASE
-		WHEN sls_ship_dt = 0 OR LENGTH(sls_ship_dt::text) != 8 THEN NULL
-		ELSE TO_DATE(sls_ship_dt::text, 'YYYYMMDD')
-	END AS sls_ship_dt,
-	CASE
-		WHEN sls_due_dt = 0 OR LENGTH(sls_due_dt::text) != 8 THEN NULL
-		ELSE TO_DATE(sls_due_dt::text, 'YYYYMMDD')
-	END AS sls_due_dt,
-	ABS(sls_quantity::numeric) AS sls_quantity,
-	CASE
-		WHEN sls_sales::numeric = 0 THEN sls_price::numeric
-		ELSE ABS(sls_sales::numeric) / ABS(sls_quantity::numeric)
-	END AS sls_price,
-	CASE
-		WHEN sls_sales::numeric = 0 THEN ABS(sls_quantity::numeric) * ABS(sls_price::numeric)
-		ELSE ABS(sls_sales::numeric)
-	END AS sls_sales
-FROM bronze.crm_sales_details
-);
+    sls_ord_num,
+    sls_prd_key,
+    sls_cust_id::text,
+    CASE
+        WHEN sls_order_dt = 0 OR LENGTH(sls_order_dt::text) != 8 THEN NULL
+        ELSE TO_DATE(sls_order_dt::text, 'YYYYMMDD')
+    END AS sls_order_dt,
+    CASE
+        WHEN sls_ship_dt = 0 OR LENGTH(sls_ship_dt::text) != 8 THEN NULL
+        ELSE TO_DATE(sls_ship_dt::text, 'YYYYMMDD')
+    END AS sls_ship_dt,
+    CASE
+        WHEN sls_due_dt = 0 OR LENGTH(sls_due_dt::text) != 8 THEN NULL
+        ELSE TO_DATE(sls_due_dt::text, 'YYYYMMDD')
+    END AS sls_due_dt,
+    ABS(sls_quantity::numeric) AS sls_quantity,
+    CASE
+        WHEN sls_sales::numeric = 0 THEN sls_price::numeric
+        ELSE ABS(sls_sales::numeric) / ABS(sls_quantity::numeric)
+    END AS sls_price,
+    CASE
+        WHEN sls_sales::numeric = 0 THEN ABS(sls_quantity::numeric) * ABS(sls_price::numeric)
+        ELSE ABS(sls_sales::numeric)
+    END AS sls_sales,
+    "_source_db"
+FROM bronze.crm_sales_details;
 
+
+-- 4. erp_cust_az12
 DROP TABLE IF EXISTS silver.erp_cust_az12;
-CREATE TABLE silver.erp_cust_az12 AS(
+CREATE TABLE silver.erp_cust_az12 AS
 SELECT
-	"CID" AS cid,
-	CASE 
-		WHEN "CID" LIKE 'NAS%' THEN SUBSTRING("CID" FROM 4 FOR LENGTH("CID"))
-		ELSE "CID"
-	END AS cust_key,
-	"BDATE"::date AS bdate,
-	CASE 
-		WHEN UPPER(TRIM("GEN")) = 'M' OR UPPER(TRIM("GEN")) = 'MALE' THEN 'Male'
-		WHEN UPPER(TRIM("GEN")) = 'F' OR UPPER(TRIM("GEN")) = 'FEMALE' THEN 'Female'
-		ELSE 'n/a'
-	END AS gen
-FROM bronze.erp_cust_az12);
+    "CID" AS cid,
+    CASE 
+        WHEN "CID" LIKE 'NAS%' THEN SUBSTRING("CID" FROM 4 FOR LENGTH("CID"))
+        ELSE "CID"
+    END AS cust_key,
+    "BDATE"::date AS bdate,
+    CASE 
+        WHEN UPPER(TRIM("GEN")) = 'M' OR UPPER(TRIM("GEN")) = 'MALE' THEN 'Male'
+        WHEN UPPER(TRIM("GEN")) = 'F' OR UPPER(TRIM("GEN")) = 'FEMALE' THEN 'Female'
+        ELSE 'n/a'
+    END AS gen,
+    "_source_db"
+FROM bronze.erp_cust_az12;
 
+
+-- 5. erp_loc_a101
 DROP TABLE IF EXISTS silver.erp_loc_a101;
-CREATE TABLE silver.erp_loc_a101 AS(
+CREATE TABLE silver.erp_loc_a101 AS
 SELECT
-	"CID" AS cid,
-	REPLACE("CID", '-', '') AS cust_key,
-	TRIM("CNTRY") AS cntry
-FROM bronze.erp_loc_a101
-);
+    "CID" AS cid,
+    REPLACE("CID", '-', '') AS cust_key,
+    TRIM("CNTRY") AS cntry,
+    "_source_db"
+FROM bronze.erp_loc_a101;
 
 
+-- 6. erp_px_cat_g1v2
 DROP TABLE IF EXISTS silver.erp_px_cat_g1v2;
 CREATE TABLE silver.erp_px_cat_g1v2 AS
-(SELECT
-	"ID" AS id,
-	TRIM("CAT") AS cat,
-	TRIM("SUBCAT") AS subcat,
-	TRIM("MAINTENANCE") AS maintenance
-FROM bronze.erp_px_cat_g1v2
-);
-
-
+SELECT
+    "ID" AS id,
+    TRIM("CAT") AS cat,
+    TRIM("SUBCAT") AS subcat,
+    TRIM("MAINTENANCE") AS maintenance,
+    "_source_db"
+FROM bronze.erp_px_cat_g1v2;
